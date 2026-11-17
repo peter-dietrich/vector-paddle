@@ -1,0 +1,14 @@
+name: macOS build and engine tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Engine smoke tests
+        run: ./scripts/test-engine.sh
+      - name: Xcode build
+        run: xcodebuild -project VectorPaddle.xcodeproj -scheme VectorPaddle -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
