@@ -9,6 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Engine smoke tests
-        run: ./scripts/test-engine.sh
+        run: bash scripts/test-engine.sh
       - name: Xcode build
         run: xcodebuild -project VectorPaddle.xcodeproj -scheme VectorPaddle -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
