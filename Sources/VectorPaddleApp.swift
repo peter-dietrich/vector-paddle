@@ -108,7 +108,7 @@ final class PaddleSession: ObservableObject {
             case 18: selectedShot = .drive
             case 19: selectedShot = .backspin
             case 20: selectedShot = .smash
-            case 2, 0, 11: swing()
+            case 11: swing() // B shoots; A/D only steer horizontally
             case 36, 76, 49:
                 switch neon.phase {
                 case .ready, .finished: startGame()
