@@ -53,6 +53,7 @@
    PRODUCT_NAME = "$(TARGET_NAME)";
    SUPPORTED_PLATFORMS = macosx;
    SWIFT_VERSION = 5.0;
+   ALWAYS_SEARCH_USER_PATHS = NO;
   }; name = Debug; };
   A10000000000000000000032 = { isa = XCBuildConfiguration; buildSettings = {
    CODE_SIGNING_ALLOWED = NO;
@@ -68,12 +69,14 @@
    SUPPORTED_PLATFORMS = macosx;
    SWIFT_OPTIMIZATION_LEVEL = "-O";
    SWIFT_VERSION = 5.0;
+   ALWAYS_SEARCH_USER_PATHS = NO;
   }; name = Release; };
   A10000000000000000000033 = { isa = XCBuildConfiguration; buildSettings = {
    CODE_SIGNING_ALLOWED = NO;
    SDKROOT = macosx;
    MACOSX_DEPLOYMENT_TARGET = 15.0;
    SWIFT_VERSION = 5.0;
+   ALWAYS_SEARCH_USER_PATHS = NO;
   }; name = Debug; };
   A10000000000000000000034 = { isa = XCBuildConfiguration; buildSettings = {
    CODE_SIGNING_ALLOWED = NO;
@@ -81,6 +84,7 @@
    MACOSX_DEPLOYMENT_TARGET = 15.0;
    SWIFT_OPTIMIZATION_LEVEL = "-O";
    SWIFT_VERSION = 5.0;
+   ALWAYS_SEARCH_USER_PATHS = NO;
   }; name = Release; };
  };
  rootObject = A10000000000000000000024;
