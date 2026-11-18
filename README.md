@@ -64,7 +64,7 @@ fi
 open VectorPaddle.xcodeproj
 ```
 
-Select the VectorPaddle scheme, **My Mac**, press **Command-R**. macOS 14+.
+Select the VectorPaddle scheme, **My Mac**, press **Command-R**. macOS 15+.
 
 Terminal build:
 
