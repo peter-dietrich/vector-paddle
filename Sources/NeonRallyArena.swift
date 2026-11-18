@@ -220,7 +220,7 @@ struct NeonRallyArena: View {
     }
 
     private func modelBox(_ name: String, size: SIMD3<Float>, pos: SIMD3<Float>,
-                          material: any Material) -> ModelEntity {
+                          material: any RealityKit.Material) -> ModelEntity {
         let entity = ModelEntity(mesh: .generateBox(size: size), materials: [material])
         entity.name = name
         entity.position = pos
