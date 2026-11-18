@@ -73,7 +73,7 @@ struct NeonRallyArena: View {
                     Spacer()
                     HStack(spacing: 14) {
                         Image(systemName: "hand.point.up.left.fill")
-                        Text("MOVE POINTER TO POSITION PADDLE  ·  CLICK TO RETURN")
+                        Text("MOVE PADDLE TO INTERCEPT  ·  CLICK FOR AN EARLY SHOT")
                         Spacer()
                         Text("SPACE TO SERVE")
                     }
