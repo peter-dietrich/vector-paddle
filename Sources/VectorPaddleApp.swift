@@ -8,7 +8,10 @@ struct VectorPaddleApp: App {
             PaddleWindow().frame(minWidth: 980, minHeight: 680).preferredColorScheme(.dark)
         }
         .defaultSize(width: 1280, height: 820)
-        .commands { CommandGroup(replacing: .newItem) {} GameHelpCommands() }
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+            GameHelpCommands()
+        }
     }
 }
 
