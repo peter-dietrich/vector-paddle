@@ -159,6 +159,28 @@ import Foundation
             }
         }
         assert(cpuReturned, "CPU must make an actual rally return")
+        // Cursor projection must cover the full legal paddle range while
+        // tracking continuously in world metres and respecting the viewport.
+        for (width, height) in [(1100.0, 650.0), (900.0, 680.0), (1440.0, 810.0)] {
+            let center = NeonRallyProjection.worldX(pointerX: width / 2,
+                         width: width, height: height)
+            assert(abs(center) < 0.00001, "center pointer must center paddle")
+            let left = NeonRallyProjection.worldX(pointerX: width * 0.32,
+                       width: width, height: height)
+            let right = NeonRallyProjection.worldX(pointerX: width * 0.68,
+                        width: width, height: height)
+            assert(left < -0.15 && right > 0.15, "pointer must move paddle visibly")
+            assert(abs(left + right) < 0.00001, "mouse mapping must be symmetric")
+            var tracked = TableMatch(rules: PaddleRules(style: .modern))
+            tracked.movePlayer(to: right)
+            assert(abs(tracked.playerX - right) < 0.00001,
+                   "mouse-mapped paddle must track pointer exactly")
+            assert(NeonRallyProjection.worldX(pointerX: 0, width: width,
+                   height: height) >= -0.70, "left edge clamp")
+            assert(NeonRallyProjection.worldX(pointerX: width, width: width,
+                   height: height) <= 0.70, "right edge clamp")
+        }
+        print("PASS: mouse-to-paddle projection tracks 3D camera across window sizes")
         print("PASS: player and opponent drive/backspin/smash trajectories and CPU rally")
         print("PASS: legal near/far serves clear net and bounce on both halves at 60/100/160%")
         print("PASS: 3D serves, ball physics, point resolution, deuce, save/restore")
