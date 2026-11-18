@@ -21,10 +21,16 @@ struct PaddleSavedMatch: Codable {
     let savedOn: Date
     var engine: PaddleEngine
 }
+struct NeonRallySavedMatch: Codable {
+    let savedOn: Date
+    var match: TableMatch
+}
 
 @MainActor
 final class PaddleSession: ObservableObject {
     @Published var engine = PaddleEngine()
+    @Published var neon = TableMatch()
+    @Published var selectedShot: TableShot = .drive
     @Published var showSettings = false
     @Published var showSaves = false
     @Published var showInitials = false
@@ -57,6 +63,7 @@ final class PaddleSession: ObservableObject {
            let rules = try? JSONDecoder().decode(PaddleRules.self, from: saved) {
             engine = PaddleEngine(rules: rules)
         }
+        neon = TableMatch(rules: engine.rules)
         keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self, NSApp.isActive else { return event }
             return self.processKey(event) ? nil : event
@@ -67,27 +74,64 @@ final class PaddleSession: ObservableObject {
         if let keyboardMonitor { NSEvent.removeMonitor(keyboardMonitor) }
     }
 
+    var isModern: Bool { engine.rules.style == .modern }
+    var activePhase: PaddlePhase { isModern ? neon.phase : engine.phase }
+    var activeScore: Int { isModern ? neon.arcadeScore : engine.arcadeScore }
+    var activeLeft: Int { isModern ? neon.playerPoints : engine.leftScore }
+    var activeRight: Int { isModern ? neon.opponentPoints : engine.rightScore }
+    var activeRally: Int { isModern ? neon.rally : engine.rally }
+    var activeLongest: Int { isModern ? neon.longestRally : engine.longestRally }
+    var activeReturns: Int { isModern ? neon.returns : engine.bounceCount }
+    var activeWinner: PaddleSide? { isModern ? neon.winner : engine.winner }
+    func setPointer(_ x: Double) { if isModern { neon.movePlayer(to: x); neon.aim(to: x) } }
+    func swing() {
+        guard isModern else { return }
+        let didHit = neon.swing(shot: selectedShot)
+        if didHit { audio.play(.paddle, enabled: engine.rules.soundEnabled) }
+    }
+    func chooseShot(_ shot: TableShot) { selectedShot = shot }
     var bestScore: Int { engine.rules.style == .classic ? bestClassic : bestModern }
     var bestInitials: String { engine.rules.style == .classic ? bestInitialsClassic : bestInitialsModern }
 
     private func processKey(_ event: NSEvent) -> Bool {
         guard !showSettings && !showSaves && !showInitials else { return false }
         let code = event.keyCode
-        let controlledKeys: Set<UInt16> = [13, 1, 126, 125, 35, 15, 36, 76, 49]
+        let controlledKeys: Set<UInt16> = [13, 1, 126, 125, 35, 15, 36, 76, 49, 2, 0, 11, 18, 19, 20]
         guard controlledKeys.contains(code) else { return false }
         if event.type == .keyUp { keys.remove(code); return true }
         keys.insert(code)
         if event.isARepeat { return true }
-        switch code {
-        case 35: engine.pauseOrResume(); lastTick = Date()
-        case 15: newGame()
-        case 36, 76, 49:
-            switch engine.phase {
-            case .ready, .finished: startGame()
-            case .paused: engine.pauseOrResume(); lastTick = Date()
-            case .playing: break
+        if isModern {
+            switch code {
+            case 35: pauseOrResume()
+            case 15: newGame()
+            case 18: selectedShot = .drive
+            case 19: selectedShot = .backspin
+            case 20: selectedShot = .smash
+            case 2, 0, 11: swing()
+            case 36, 76, 49:
+                switch neon.phase {
+                case .ready, .finished: startGame()
+                case .paused: pauseOrResume()
+                case .playing: if neon.awaitingServe {
+                    if neon.serveSide == .left { _ = neon.serve() }
+                    else if neon.rules.players == .local { _ = neon.serveSecondPlayer() }
+                } else { swing() }
+                }
+            default: break
             }
-        default: break
+        } else {
+            switch code {
+            case 35: pauseOrResume()
+            case 15: newGame()
+            case 36, 76, 49:
+                switch engine.phase {
+                case .ready, .finished: startGame()
+                case .paused: pauseOrResume()
+                case .playing: break
+                }
+            default: break
+            }
         }
         return true
     }
@@ -95,6 +139,18 @@ final class PaddleSession: ObservableObject {
         let now = Date()
         let dt = now.timeIntervalSince(lastTick)
         lastTick = now
+        if isModern {
+            guard neon.phase == .playing else { return }
+            let leftAxis = (keys.contains(2) ? 1.0 : 0) - (keys.contains(0) ? 1.0 : 0)
+            let rightAxis = (keys.contains(124) ? 1.0 : 0) - (keys.contains(123) ? 1.0 : 0)
+            let events = neon.tick(dt, nearAxis: leftAxis, farAxis: rightAxis)
+            if let event = events.last { audio.play(event, enabled: engine.rules.soundEnabled) }
+            if neon.phase == .finished && !promptedThisMatch {
+                promptedThisMatch = true
+                if neon.arcadeScore > bestScore { initialsDraft = ""; showInitials = true }
+            }
+            return
+        }
         guard engine.phase == .playing else { return }
         let left = (keys.contains(1) ? 1.0 : 0) - (keys.contains(13) ? 1.0 : 0)
         let right = (keys.contains(125) ? 1.0 : 0) - (keys.contains(126) ? 1.0 : 0)
@@ -109,13 +165,20 @@ final class PaddleSession: ObservableObject {
         }
     }
     func startGame() {
-        if engine.phase == .finished { newGame() }
-        engine.start()
+        if isModern {
+            if neon.phase == .finished { newGame() }
+            neon.start()
+        } else {
+            if engine.phase == .finished { newGame() }
+            engine.start()
+        }
         lastTick = Date()
     }
     func newGame(with rules: PaddleRules? = nil) {
         keys.removeAll()
         engine.reset(using: rules ?? engine.rules)
+        neon.reset(engine.rules)
+        selectedShot = .drive
         promptedThisMatch = false
         lastTick = Date()
         mouseY = nil
@@ -123,7 +186,7 @@ final class PaddleSession: ObservableObject {
             preferences.set(data, forKey: "VectorPaddle.Rules.v1")
         }
     }
-    func pauseOrResume() { engine.pauseOrResume(); lastTick = Date() }
+    func pauseOrResume() { if isModern { neon.pauseOrResume() } else { engine.pauseOrResume() }; lastTick = Date() }
     func selectStyle(_ style: PaddleStyle) {
         guard engine.rules.style != style else { return }
         var changed = engine.rules; changed.style = style
@@ -137,7 +200,7 @@ final class PaddleSession: ObservableObject {
     func recordInitials() {
         let initials = String(initialsDraft.uppercased().filter { $0.isLetter }.prefix(3))
         let value = initials.isEmpty ? "---" : initials
-        let score = engine.arcadeScore
+        let score = activeScore
         if engine.rules.style == .classic {
             bestClassic = max(bestClassic, score)
             bestInitialsClassic = value
@@ -156,7 +219,13 @@ final class PaddleSession: ObservableObject {
         showInitials = false
     }
     func save(_ slot: Int) {
-        guard (1...5).contains(slot), engine.phase != .ready else { return }
+        guard (1...5).contains(slot), activePhase != .ready else { return }
+        if isModern {
+            guard let data = try? JSONEncoder().encode(NeonRallySavedMatch(savedOn: Date(), match: neon)) else { return }
+            preferences.set(data, forKey: "VectorPaddle.NeonRally.Slot.\(slot).v1")
+            savedRevision += 1
+            return
+        }
         let save = PaddleSavedMatch(savedOn: Date(), engine: engine)
         guard let encoded = try? JSONEncoder().encode(save) else { return }
         preferences.set(encoded, forKey: slotKey(slot))
@@ -166,7 +235,24 @@ final class PaddleSession: ObservableObject {
         guard (1...5).contains(slot), let data = preferences.data(forKey: slotKey(slot)) else { return nil }
         return try? JSONDecoder().decode(PaddleSavedMatch.self, from: data)
     }
+    func readModernSlot(_ slot: Int) -> NeonRallySavedMatch? {
+        guard (1...5).contains(slot),
+            let data = preferences.data(forKey: "VectorPaddle.NeonRally.Slot.\(slot).v1") else { return nil }
+        return try? JSONDecoder().decode(NeonRallySavedMatch.self, from: data)
+    }
+    func hasSlot(_ slot: Int) -> Bool { isModern ? readModernSlot(slot) != nil : readSlot(slot) != nil }
     func resume(_ slot: Int) {
+        if isModern {
+            guard var saved = readModernSlot(slot) else { return }
+            saved.match.phase = .paused
+            neon = saved.match
+            engine.reset(using: neon.rules)
+            promptedThisMatch = false
+            showSaves = false
+            keys.removeAll()
+            lastTick = Date()
+            return
+        }
         guard var save = readSlot(slot) else { return }
         save.engine.phase = .paused
         engine = save.engine
@@ -176,7 +262,8 @@ final class PaddleSession: ObservableObject {
         keys.removeAll()
     }
     func delete(_ slot: Int) {
-        preferences.removeObject(forKey: slotKey(slot))
+        if isModern { preferences.removeObject(forKey: "VectorPaddle.NeonRally.Slot.\(slot).v1") }
+        else { preferences.removeObject(forKey: slotKey(slot)) }
         savedRevision += 1
     }
     private func slotKey(_ slot: Int) -> String { "VectorPaddle.SaveSlot.\(slot).v1" }
@@ -215,8 +302,8 @@ struct PaddleWindow: View {
                 Spacer()
                 Button("Custom Game") { game.showSettings = true }
                 Button("Save / Resume") { game.showSaves = true }
-                Button(game.engine.phase == .paused ? "Resume" : "Pause") { game.pauseOrResume() }
-                    .disabled(game.engine.phase != .playing && game.engine.phase != .paused)
+                Button(game.activePhase == .paused ? "Resume" : "Pause") { game.pauseOrResume() }
+                    .disabled(game.activePhase != .playing && game.activePhase != .paused)
                 Button("New Game") { game.newGame() }.buttonStyle(.borderedProminent).tint(blue)
             }
             .buttonStyle(.bordered).controlSize(.small)
@@ -234,7 +321,7 @@ struct PaddleWindow: View {
                 }.labelsHidden().frame(width: 115)
                 Spacer(minLength: 12)
                 Text(game.engine.rules.players.rawValue.uppercased()).foregroundStyle(blue)
-                Text("FIRST TO \(game.engine.rules.winningPoints)").foregroundStyle(.white.opacity(0.7))
+                Text(game.isModern ? "BEST OF 3 · 11 PT GAMES" : "FIRST TO \(game.engine.rules.winningPoints)").foregroundStyle(.white.opacity(0.7))
             }
             .font(.system(size: 10, weight: .bold, design: .monospaced))
             .padding(.horizontal, 22).frame(height: 44)
@@ -242,19 +329,36 @@ struct PaddleWindow: View {
 
             GeometryReader { geometry in
                 HStack(spacing: 18) {
-                    PaddleArena(engine: game.engine) { normalizedY in game.mouseY = normalizedY }
-                        .aspectRatio(1.52, contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(blue.opacity(game.engine.rules.style == .modern ? 0.5 : 0.2)))
-                        .overlay { statusOverlay }
+                    Group {
+                        if game.isModern {
+                            NeonRallyArena(match: game.neon, aimChanged: { game.setPointer($0) },
+                                           stroke: { game.swing() })
+                        } else {
+                            PaddleArena(engine: game.engine) { normalizedY in game.mouseY = normalizedY }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(blue.opacity(game.isModern ? 0.5 : 0.2)))
+                    .overlay { statusOverlay }
                     telemetry.frame(width: 220)
                 }
                 .padding(18).frame(width: geometry.size.width, height: geometry.size.height)
             }
-            HStack(spacing: 22) {
-                Text("W / S  LEFT PADDLE")
-                Text("↑ / ↓  RIGHT PADDLE (2P)")
-                Text("RETURN / SPACE  START")
+            HStack(spacing: 16) {
+                if game.isModern {
+                    Text("POINTER / A-D  MOVE PADDLE")
+                    Text("CLICK / RETURN  HIT")
+                    Text("SPACE  SERVE")
+                    Picker("Shot", selection: $game.selectedShot) {
+                        Text("1 DRIVE").tag(TableShot.drive)
+                        Text("2 BACKSPIN").tag(TableShot.backspin)
+                        Text("3 SMASH").tag(TableShot.smash)
+                    }.pickerStyle(.segmented).frame(width: 310)
+                } else {
+                    Text("W / S  LEFT PADDLE")
+                    Text("↑ / ↓  RIGHT PADDLE (2P)")
+                    Text("RETURN / SPACE  START")
+                }
                 Spacer()
                 Text("P  PAUSE     R  RESET")
             }
@@ -270,7 +374,7 @@ struct PaddleWindow: View {
         .sheet(isPresented: $game.showInitials) {
             VStack(spacing: 17) {
                 Text("NEW ARCADE RECORD").font(.system(size: 22, weight: .black, design: .monospaced))
-                Text("\(game.engine.arcadeScore) POINTS  ·  \(game.engine.rules.style.rawValue.uppercased())")
+                Text("\(game.activeScore) POINTS  ·  \(game.engine.rules.style.rawValue.uppercased())")
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                 TextField("THREE INITIALS", text: $game.initialsDraft).frame(width: 160).textFieldStyle(.roundedBorder)
                 Button("Record Score") { game.recordInitials() }
@@ -280,12 +384,12 @@ struct PaddleWindow: View {
         }
     }
     @ViewBuilder private var statusOverlay: some View {
-        switch game.engine.phase {
+        switch game.activePhase {
         case .ready: gameMessage("VECTOR PADDLE", sub: "TWO ERAS. ONE ARENA.", action: "RETURN TO START")
         case .paused: gameMessage("PAUSED", sub: "MATCH SUSPENDED", action: "P / RETURN TO RESUME")
         case .finished:
-            gameMessage(game.engine.winner == .left ? "PLAYER ONE WINS" : (game.engine.rules.players == .solo ? "CPU WINS" : "PLAYER TWO WINS"),
-                        sub: "ARCADE SCORE  \(game.engine.arcadeScore)", action: "RETURN TO REMATCH")
+            gameMessage(game.activeWinner == .left ? "PLAYER ONE WINS" : (game.engine.rules.players == .solo ? "CPU WINS" : "PLAYER TWO WINS"),
+                        sub: "ARCADE SCORE  \(game.activeScore)", action: "RETURN TO REMATCH")
         case .playing: EmptyView()
         }
     }
@@ -295,8 +399,8 @@ struct PaddleWindow: View {
             Text(sub).font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundStyle(blue)
             Text(action).font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.7))
-            Button(game.engine.phase == .paused ? "RESUME" : "PLAY") {
-                if game.engine.phase == .paused { game.pauseOrResume() } else { game.startGame() }
+            Button(game.activePhase == .paused ? "RESUME" : "PLAY") {
+                if game.activePhase == .paused { game.pauseOrResume() } else { game.startGame() }
             }.buttonStyle(.borderedProminent).tint(blue)
         }
         .padding(28)
@@ -308,26 +412,31 @@ struct PaddleWindow: View {
             Text("MATCH TELEMETRY").font(.system(size: 12, weight: .black, design: .monospaced)).foregroundStyle(blue)
             Divider().overlay(blue.opacity(0.3))
             HStack {
-                meter("PLAYER 1", value: "\(game.engine.leftScore)", tint: blue)
+                meter("PLAYER 1", value: "\(game.activeLeft)", tint: blue)
                 Spacer()
-                meter(game.engine.rules.players == .solo ? "CPU" : "PLAYER 2", value: "\(game.engine.rightScore)", tint: pink)
+                meter(game.engine.rules.players == .solo ? "CPU" : "PLAYER 2", value: "\(game.activeRight)", tint: pink)
             }
             Divider().overlay(blue.opacity(0.3))
-            meter("ARCADE POINTS", value: game.engine.arcadeScore.formatted(), tint: .white)
+            meter("ARCADE POINTS", value: game.activeScore.formatted(), tint: .white)
             meter("PERSONAL BEST", value: game.bestScore.formatted(), tint: .yellow)
             Text("\(game.bestInitials)   ·   \(game.engine.rules.style.rawValue.uppercased())")
                 .font(.system(size: 10, design: .monospaced)).foregroundStyle(.white.opacity(0.5))
             Divider().overlay(blue.opacity(0.3))
-            meter("CURRENT RALLY", value: "\(game.engine.rally)", tint: blue)
-            meter("LONGEST RALLY", value: "\(game.engine.longestRally)", tint: blue)
-            meter("PADDLE HITS", value: "\(game.engine.bounceCount)", tint: blue)
+            meter("CURRENT RALLY", value: "\(game.activeRally)", tint: blue)
+            meter("LONGEST RALLY", value: "\(game.activeLongest)", tint: blue)
+            meter("PADDLE HITS", value: "\(game.activeReturns)", tint: blue)
             if game.engine.rules.style == .modern {
                 Divider().overlay(blue.opacity(0.3))
-                Text("ARENA SYSTEMS").font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(pink)
-                status("WIDE PADDLE", active: max(game.engine.leftWideFor, game.engine.rightWideFor) > 0)
-                status("TIME DILATION", active: game.engine.slowFor > 0)
-                status("SPEED BOOST", active: game.engine.boostFor > 0)
-                status("MULTIBALL", active: game.engine.balls.count > 1)
+                Text("NEON RALLY · TABLE TENNIS")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(pink)
+                meter("GAMES WON", value: "\(game.neon.playerGames)  :  \(game.neon.opponentGames)", tint: .white)
+                Text(game.neon.isDeuce ? "DEUCE · ALTERNATE EVERY SERVE" : "TWO SERVES EACH")
+                    .font(.system(size: 9, design: .monospaced)).foregroundStyle(blue)
+                Text(game.neon.playerServing ? "PLAYER 1 SERVES" : "OPPONENT SERVES")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                Text("SHOT: \(game.selectedShot.rawValue.uppercased())")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.65))
             }
             Spacer(minLength: 8)
             Text("FUN CITY ARCADE").font(.system(size: 10, weight: .black, design: .monospaced)).foregroundStyle(.white.opacity(0.38))
@@ -391,7 +500,9 @@ struct PaddleSettingsSheet: View {
                     Text("\(draft.paddleSizePercent)%").frame(width: 50)
                 }
                 Toggle("Mouse control for Player 1", isOn: $draft.mousePaddle)
-                Toggle("Modern power-ups", isOn: $draft.powerupsEnabled).disabled(draft.style == .classic)
+                Text("Modern uses table-tennis rules; arcade powers are disabled.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .opacity(draft.style == .modern ? 1 : 0)
                 Toggle("Sound effects", isOn: $draft.soundEnabled)
                 Toggle("Enhanced visual effects", isOn: $draft.effectsEnabled).disabled(draft.style == .classic)
                 Toggle("Reduced flashes", isOn: $draft.reducedFlash)
@@ -435,21 +546,24 @@ struct PaddleSaveSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
             Text("SAVE / RESUME MATCH").font(.system(size: 22, weight: .black, design: .monospaced))
-            Text("Five local slots. Restored games always reopen paused.").foregroundStyle(.secondary)
+            Text("Five slots per cabinet. Restored games always reopen paused.").foregroundStyle(.secondary)
             ForEach(1...5, id: \.self) { index in
                 HStack(spacing: 15) {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("SLOT \(index)").font(.system(size: 12, weight: .bold, design: .monospaced))
-                        if let save = game.readSlot(index) {
-                            Text("\(save.engine.rules.style.rawValue) · \(save.engine.leftScore)–\(save.engine.rightScore) · \(save.savedOn.formatted(date: .abbreviated, time: .shortened))")
+                        if game.isModern, let save = game.readModernSlot(index) {
+                            Text("Neon Rally · \(save.match.playerPoints)–\(save.match.opponentPoints) · \(save.savedOn.formatted(date: .abbreviated, time: .shortened))")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        } else if !game.isModern, let save = game.readSlot(index) {
+                            Text("Classic · \(save.engine.leftScore)–\(save.engine.rightScore) · \(save.savedOn.formatted(date: .abbreviated, time: .shortened))")
                                 .font(.system(size: 11)).foregroundStyle(.secondary)
                         } else { Text("EMPTY").font(.caption).foregroundStyle(.secondary) }
                     }
                     Spacer()
-                    Button("Save") { game.save(index) }.disabled(game.engine.phase == .ready)
-                    Button("Resume") { game.resume(index) }.disabled(game.readSlot(index) == nil)
+                    Button("Save") { game.save(index) }.disabled(game.activePhase == .ready)
+                    Button("Resume") { game.resume(index) }.disabled(!game.hasSlot(index))
                     Button(role: .destructive) { game.delete(index) } label: { Image(systemName: "trash") }
-                        .disabled(game.readSlot(index) == nil)
+                        .disabled(!game.hasSlot(index))
                 }
                 .padding(12).background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.05)))
             }
