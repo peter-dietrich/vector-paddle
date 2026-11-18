@@ -4,6 +4,9 @@
  classes = {};
  objectVersion = 56;
  objects = {
+  FC0DE0000000000000000065 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/GameHelp.swift; sourceTree = "<group>"; };
+  FC0DE0000000000000000066 = { isa = PBXBuildFile; fileRef = FC0DE0000000000000000065; };
+  FC0DE0000000000000000067 = { isa = PBXShellScriptBuildPhase; buildActionMask = 2147483647; files = (); inputPaths = ("$(PROJECT_DIR)/scripts/generate-app-icon.swift"); outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/AppIcon.icns"); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "set -eu\n/usr/bin/swift \"$PROJECT_DIR/scripts/generate-app-icon.swift\" \"vector-paddle\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/AppIcon.icns\"\n"; };
   A10000000000000000000001 = { isa = PBXBuildFile; fileRef = A10000000000000000000011; };
   A10000000000000000000002 = { isa = PBXBuildFile; fileRef = A10000000000000000000012; };
   A10000000000000000000003 = { isa = PBXBuildFile; fileRef = A10000000000000000000013; };
@@ -17,10 +20,10 @@
   A10000000000000000000016 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/TableTennisEngine.swift; sourceTree = "<group>"; };
   A10000000000000000000017 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/NeonRallyArena.swift; sourceTree = "<group>"; };
   A10000000000000000000015 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VectorPaddle.app; sourceTree = BUILT_PRODUCTS_DIR; };
-  A10000000000000000000020 = { isa = PBXGroup; children = (A10000000000000000000011, A10000000000000000000012, A10000000000000000000013, A10000000000000000000014, A10000000000000000000016, A10000000000000000000017, A10000000000000000000021); sourceTree = "<group>"; };
+  A10000000000000000000020 = { isa = PBXGroup; children = (FC0DE0000000000000000065, A10000000000000000000011, A10000000000000000000012, A10000000000000000000013, A10000000000000000000014, A10000000000000000000016, A10000000000000000000017, A10000000000000000000021); sourceTree = "<group>"; };
   A10000000000000000000021 = { isa = PBXGroup; children = (A10000000000000000000015); name = Products; sourceTree = "<group>"; };
-  A10000000000000000000022 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006); runOnlyForDeploymentPostprocessing = 0; };
-  A10000000000000000000023 = { isa = PBXNativeTarget; buildConfigurationList = A10000000000000000000025; buildPhases = (A10000000000000000000022); buildRules = (); dependencies = (); name = VectorPaddle; productName = VectorPaddle; productReference = A10000000000000000000015; productType = "com.apple.product-type.application"; };
+  A10000000000000000000022 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (FC0DE0000000000000000066, A10000000000000000000001, A10000000000000000000002, A10000000000000000000003, A10000000000000000000004, A10000000000000000000005, A10000000000000000000006); runOnlyForDeploymentPostprocessing = 0; };
+  A10000000000000000000023 = { isa = PBXNativeTarget; buildConfigurationList = A10000000000000000000025; buildPhases = (A10000000000000000000022, FC0DE0000000000000000067); buildRules = (); dependencies = (); name = VectorPaddle; productName = VectorPaddle; productReference = A10000000000000000000015; productType = "com.apple.product-type.application"; };
   A10000000000000000000024 = {
    isa = PBXProject;
    attributes = { LastUpgradeCheck = 1600; TargetAttributes = { A10000000000000000000023 = { CreatedOnToolsVersion = 16.0; }; }; };
@@ -41,7 +44,7 @@
    CODE_SIGNING_ALLOWED = NO;
    CURRENT_PROJECT_VERSION = 7;
    GENERATE_INFOPLIST_FILE = YES;
-   INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle";
+   INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle"; INFOPLIST_KEY_CFBundleIconFile = AppIcon; ENABLE_USER_SCRIPT_SANDBOXING = NO;
    INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
    INFOPLIST_KEY_NSHighResolutionCapable = YES;
    MACOSX_DEPLOYMENT_TARGET = 15.0;
@@ -55,7 +58,7 @@
    CODE_SIGNING_ALLOWED = NO;
    CURRENT_PROJECT_VERSION = 7;
    GENERATE_INFOPLIST_FILE = YES;
-   INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle";
+   INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle"; INFOPLIST_KEY_CFBundleIconFile = AppIcon; ENABLE_USER_SCRIPT_SANDBOXING = NO;
    INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
    INFOPLIST_KEY_NSHighResolutionCapable = YES;
    MACOSX_DEPLOYMENT_TARGET = 15.0;
