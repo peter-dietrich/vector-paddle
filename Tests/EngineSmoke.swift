@@ -47,6 +47,28 @@ import Foundation
         modern.balls = [PaddleBall(x: 0.5, y: 0.5, vx: 0.4, vy: 0, lastHit: .right)]
         _ = modern.step(1.0 / 60.0, leftAxis: 0, rightAxis: 0, mouseY: nil)
         assert(modern.rightWideFor > 0, "wide powerup must grow the correct paddle")
+        var tennis = TableMatch(rules: PaddleRules(style: .modern))
+        assert(tennis.phase == .ready)
+        tennis.start()
+        assert(tennis.phase == .playing && tennis.awaitingServe)
+        assert(tennis.serve())
+        assert(tennis.ball != nil)
+        for _ in 0..<240 {
+            _ = tennis.tick(1.0 / 60.0)
+            if tennis.awaitingServe { break }
+        }
+        assert(tennis.score.player + tennis.score.opponent > 0, "point must finish")
+        assert(tennis.awaitingServe)
+        tennis.pauseOrResume()
+        assert(tennis.phase == .paused)
+        let tennisData = try JSONEncoder().encode(tennis)
+        let resumed = try JSONDecoder().decode(TableMatch.self, from: tennisData)
+        assert(resumed.phase == .paused)
+        var deuce = TableMatch(rules: PaddleRules(style: .modern))
+        deuce.start()
+        deuce.score.player = 10; deuce.score.opponent = 10
+        assert(deuce.isDeuce)
+        print("PASS: 3D serves, ball physics, point resolution, deuce, save/restore")
         print("PASS: serve, scoring, paddle rebound, match win, pickups, pause, save/restore")
     }
 }
