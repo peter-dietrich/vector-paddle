@@ -264,17 +264,47 @@ struct NeonRallyArena: View {
     }
 
     private func makePaddle(_ name: String, color: NSColor) -> Entity {
-        let base = Entity()
-        base.name = name
-        let head = ModelEntity(mesh: .generateBox(size: [Float(TableMatch.paddleHalfWidth * 2), Float(TableMatch.paddleHalfHeight * 2), 0.035]),
-                               materials: [SimpleMaterial(color: color, isMetallic: true)])
-        head.name = "paddle-face"
-        base.addChild(head)
-        let handle = modelBox("handle", size: [0.058, 0.15, 0.052],
-                              pos: [0, -0.21, 0],
-                              material: SimpleMaterial(color: NSColor.black, isMetallic: false))
-        base.addChild(handle)
-        return base
+        let paddle = Entity()
+        paddle.name = name
+
+        // An upright, thin elliptical racket instead of the original
+        // oversized rectangular board. Layered translucent shells produce
+        // a glass-like center and a crisp lit silhouette.
+        var glass = PhysicallyBasedMaterial()
+        glass.baseColor = .init(tint: color.withAlphaComponent(0.56))
+        glass.roughness = .init(floatLiteral: 0.13)
+        glass.metallic = .init(floatLiteral: 0.18)
+        glass.blending = .transparent(opacity: .init(floatLiteral: 0.54))
+
+        let face = ModelEntity(mesh: .generateSphere(radius: 1),
+                               materials: [glass])
+        face.name = "paddle-face"
+        face.scale = [Float(TableMatch.paddleHalfWidth),
+                      Float(TableMatch.paddleHalfHeight), 0.014]
+        paddle.addChild(face)
+
+        // A modest illuminated oval rim preserves the paddle shape against
+        // the dark table without turning it back into an opaque paddle.
+        let edge = ModelEntity(mesh: .generateSphere(radius: 1),
+                               materials: [UnlitMaterial(
+                                   color: color.withAlphaComponent(0.39))])
+        edge.name = "glass-edge"
+        edge.scale = [Float(TableMatch.paddleHalfWidth) * 1.08,
+                      Float(TableMatch.paddleHalfHeight) * 1.07, 0.010]
+        edge.position = [0, 0, -0.009]
+        paddle.addChild(edge)
+
+        // Narrow neck and short opaque handle follow actual racket proportions.
+        paddle.addChild(modelBox("paddle-neck", size: [0.045, 0.065, 0.025],
+            pos: [0, -Float(TableMatch.paddleHalfHeight) - 0.009, 0],
+            material: SimpleMaterial(color: color.withAlphaComponent(0.80),
+                                     isMetallic: true)))
+        paddle.addChild(modelBox("handle", size: [0.047, 0.145, 0.034],
+            pos: [0, -Float(TableMatch.paddleHalfHeight) - 0.108, 0],
+            material: SimpleMaterial(
+                color: NSColor(red: 0.11, green: 0.14, blue: 0.18, alpha: 1),
+                isMetallic: false)))
+        return paddle
     }
 
     private func modelBox(_ name: String, size: SIMD3<Float>, pos: SIMD3<Float>,
