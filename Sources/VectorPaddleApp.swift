@@ -347,7 +347,7 @@ struct PaddleWindow: View {
             HStack(spacing: 16) {
                 if game.isModern {
                     Text("POINTER / A-D  MOVE PADDLE")
-                    Text("CLICK / RETURN  HIT")
+                    Text("AUTO RETURN  ·  CLICK FOR EARLY SHOT")
                     Text("SPACE  SERVE")
                     Picker("Shot", selection: $game.selectedShot) {
                         Text("1 DRIVE").tag(TableShot.drive)
