@@ -224,6 +224,13 @@ import Foundation
         assert(receivedServe.score.returns > 0,
                "actual CPU serves must reach the near paddle after a legal bounce")
         print("PASS: both physical racket planes, legal hits/misses, and full CPU serve")
+        assert(TableMatch.paddleContactZ > 1.15 &&
+               TableMatch.paddleContactZ < TableMatch.tableHalfLength,
+               "racket must sit near, but inside, the table end line")
+        assert(TableMatch.paddleHalfWidth < 0.15 &&
+               TableMatch.paddleHalfHeight < 0.18,
+               "racket must remain compact relative to the earlier rectangular paddle")
+        print("PASS: compact back-edge racket geometry and physical contact")
         // Cursor projection must cover the full legal paddle range while
         // tracking continuously in world metres and respecting the viewport.
         for (width, height) in [(1100.0, 650.0), (900.0, 680.0), (1440.0, 810.0)] {
