@@ -147,8 +147,8 @@ import Foundation
         var cpu = TableMatch(rules: PaddleRules(style: .modern))
         cpu.start()
         cpu.awaitingServe = false
-        cpu.ball = TableBall(x: 0, y: 1.05, z: -0.55, vx: 0,
-                             vy: 0, vz: -1.9, lastHit: .left,
+        cpu.ball = TableBall(x: 0, y: 1.02, z: -0.85, vx: 0,
+                             vy: 0.75, vz: -2.2, lastHit: .left,
                              receiverBounceCount: 1)
         var cpuReturned = false
         for _ in 0..<180 {
@@ -159,6 +159,71 @@ import Foundation
             }
         }
         assert(cpuReturned, "CPU must make an actual rally return")
+        // Physical collision regression: the ball MUST meet the racket on
+        // its actual plane without requiring a click, but a genuine miss
+        // must never become a phantom return.
+        for receiver in [PaddleSide.left, .right] {
+            let dir = receiver == .left ? 1.0 : -1.0
+            let nearPlane = receiver == .left ? TableMatch.paddleContactZ :
+                                                   -TableMatch.paddleContactZ
+            for offset in [0.0, 0.19] {
+                var match = TableMatch(rules: PaddleRules(style: .modern,
+                                                         players: .local))
+                match.start()
+                match.awaitingServe = false
+                match.ball = TableBall(x: offset, y: 1.04,
+                    z: nearPlane - dir * 0.18, vx: 0, vy: 0.28,
+                    vz: dir * 2.6, lastHit: receiver.opposite,
+                    receiverBounceCount: 1)
+                for _ in 0..<48 {
+                    _ = match.tick(1.0 / 240.0, selectedShot: .drive)
+                    if match.ball?.lastHit == receiver { break }
+                }
+                assert(match.ball?.lastHit == receiver,
+                    "paddle must automatically contact an in-range ball")
+                assert(match.score.currentRally == 1,
+                    "contact must count as an actual rally return")
+                if receiver == .left {
+                    assert(match.score.returns == 1,
+                        "player paddle contact must update hit telemetry")
+                }
+            }
+            var miss = TableMatch(rules: PaddleRules(style: .modern,
+                                                    players: .local))
+            miss.start()
+            miss.awaitingServe = false
+            miss.ball = TableBall(x: 0.66, y: 1.04,
+                z: nearPlane - dir * 0.18, vx: 0, vy: 0.28,
+                vz: dir * 2.6, lastHit: receiver.opposite,
+                receiverBounceCount: 1)
+            for _ in 0..<48 { _ = miss.tick(1.0 / 240.0) }
+            assert(miss.ball?.lastHit != receiver,
+                "ball outside the visible racket must not auto-return")
+            var premature = TableMatch(rules: PaddleRules(style: .modern,
+                                                         players: .local))
+            premature.start()
+            premature.awaitingServe = false
+            premature.ball = TableBall(x: 0, y: 1.04,
+                z: nearPlane - dir * 0.18, vx: 0, vy: 0.28,
+                vz: dir * 2.6, lastHit: receiver.opposite,
+                receiverBounceCount: 0)
+            for _ in 0..<48 { _ = premature.tick(1.0 / 240.0) }
+            assert(premature.ball?.lastHit != receiver,
+                "paddle cannot legally intercept before the receiver bounce")
+        }
+        // End-to-end, a legitimate CPU serve must make it to the player
+        // paddle contact plane and trigger a playable return.
+        var receivedServe = TableMatch(rules: PaddleRules(style: .modern))
+        receivedServe.start()
+        receivedServe.serveSide = .right
+        for _ in 0..<600 {
+            _ = receivedServe.tick(1.0 / 240.0)
+            if receivedServe.score.returns > 0 || receivedServe.awaitingServe &&
+               receivedServe.score.opponent + receivedServe.score.player > 0 { break }
+        }
+        assert(receivedServe.score.returns > 0,
+               "actual CPU serves must reach the near paddle after a legal bounce")
+        print("PASS: both physical racket planes, legal hits/misses, and full CPU serve")
         // Cursor projection must cover the full legal paddle range while
         // tracking continuously in world metres and respecting the viewport.
         for (width, height) in [(1100.0, 650.0), (900.0, 680.0), (1440.0, 810.0)] {
