@@ -43,8 +43,12 @@ struct NeonRallyArena: View {
                 .background(Color(red: 0.012, green: 0.022, blue: 0.050))
                 .onContinuousHover { phase in
                     if case .active(let point) = phase {
-                        let x = min(1, max(0, Double(point.x / max(1, proxy.size.width))))
-                        aimChanged(x * 2 - 1)
+                        let worldX = NeonRallyProjection.worldX(
+                            pointerX: Double(point.x),
+                            width: Double(proxy.size.width),
+                            height: Double(proxy.size.height)
+                        )
+                        aimChanged(worldX)
                     }
                 }
                 .onTapGesture(perform: stroke)
@@ -90,11 +94,17 @@ struct NeonRallyArena: View {
 
         let camera = PerspectiveCamera()
         camera.name = "arena-camera"
-        // Courtside broadcast framing: substantially larger table and net
-        // within the same playfield without changing the regulation geometry.
-        camera.position = SIMD3<Float>(0, 2.22, 2.95)
-        camera.look(at: SIMD3<Float>(0, 0.84, -0.12),
-                    from: SIMD3<Float>(0, 2.22, 2.95), relativeTo: root)
+        // A lower courtside camera fills the arena with the table while keeping
+        // its near edge and serving paddle visible at the bottom of the view.
+        // These values also drive accurate cursor-to-paddle projection.
+        camera.camera.fieldOfViewInDegrees = Float(NeonRallyProjection.fieldOfViewDegrees)
+        let cameraPosition = SIMD3<Float>(
+            0, Float(NeonRallyProjection.eyeY), Float(NeonRallyProjection.eyeZ)
+        )
+        camera.position = cameraPosition
+        camera.look(at: SIMD3<Float>(
+            0, Float(NeonRallyProjection.lookY), Float(NeonRallyProjection.lookZ)
+        ), from: cameraPosition, relativeTo: root)
         root.addChild(camera)
 
         let floor = modelBox("floor", size: [9.0, 0.08, 10.0],
