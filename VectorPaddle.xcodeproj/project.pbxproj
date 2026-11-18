@@ -42,13 +42,13 @@
   A10000000000000000000026 = { isa = XCConfigurationList; buildConfigurations = (A10000000000000000000033, A10000000000000000000034); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
   A10000000000000000000031 = { isa = XCBuildConfiguration; buildSettings = {
    CODE_SIGNING_ALLOWED = NO;
-   CURRENT_PROJECT_VERSION = 7;
+   CURRENT_PROJECT_VERSION = 8;
    GENERATE_INFOPLIST_FILE = YES;
    INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle"; INFOPLIST_KEY_CFBundleIconFile = AppIcon; ENABLE_USER_SCRIPT_SANDBOXING = NO;
    INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
    INFOPLIST_KEY_NSHighResolutionCapable = YES;
    MACOSX_DEPLOYMENT_TARGET = 15.0;
-   MARKETING_VERSION = 0.2.5;
+   MARKETING_VERSION = 0.2.6;
    PRODUCT_BUNDLE_IDENTIFIER = "io.vectorpaddle.game";
    PRODUCT_NAME = "$(TARGET_NAME)";
    SUPPORTED_PLATFORMS = macosx;
@@ -56,13 +56,13 @@
   }; name = Debug; };
   A10000000000000000000032 = { isa = XCBuildConfiguration; buildSettings = {
    CODE_SIGNING_ALLOWED = NO;
-   CURRENT_PROJECT_VERSION = 7;
+   CURRENT_PROJECT_VERSION = 8;
    GENERATE_INFOPLIST_FILE = YES;
    INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle"; INFOPLIST_KEY_CFBundleIconFile = AppIcon; ENABLE_USER_SCRIPT_SANDBOXING = NO;
    INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
    INFOPLIST_KEY_NSHighResolutionCapable = YES;
    MACOSX_DEPLOYMENT_TARGET = 15.0;
-   MARKETING_VERSION = 0.2.5;
+   MARKETING_VERSION = 0.2.6;
    PRODUCT_BUNDLE_IDENTIFIER = "io.vectorpaddle.game";
    PRODUCT_NAME = "$(TARGET_NAME)";
    SUPPORTED_PLATFORMS = macosx;
