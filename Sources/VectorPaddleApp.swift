@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct VectorPaddleApp: App {
+    @NSApplicationDelegateAdaptor(ArcadeIconAppDelegate.self) private var iconDelegate
     var body: some Scene {
         WindowGroup("Vector Paddle") {
             PaddleWindow().frame(minWidth: 980, minHeight: 680).preferredColorScheme(.dark)
