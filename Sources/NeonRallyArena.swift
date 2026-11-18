@@ -181,10 +181,10 @@ struct NeonRallyArena: View {
         }
 
         let near = makePaddle("near-paddle", color: brightCyan)
-        near.position = [Float(match.playerX), 1.01, 1.47]
+        near.position = [Float(match.playerX), Float(TableMatch.paddleCenterY), Float(TableMatch.paddleContactZ)]
         root.addChild(near)
         let far = makePaddle("far-paddle", color: brightPink)
-        far.position = [Float(match.opponentX), 1.01, -1.47]
+        far.position = [Float(match.opponentX), Float(TableMatch.paddleCenterY), -Float(TableMatch.paddleContactZ)]
         root.addChild(far)
 
         let ball = ModelEntity(mesh: .generateSphere(radius: 0.024),
@@ -202,6 +202,52 @@ struct NeonRallyArena: View {
         shadow.isEnabled = match.ball != nil
         root.addChild(shadow)
 
+        // Solid stadium architecture on both flanks. Keep everything beyond
+        // the court and outside the contact geometry: scenery is decorative,
+        // never a hidden gameplay collider.
+        let frameMetal = SimpleMaterial(
+            color: NSColor(red: 0.065, green: 0.10, blue: 0.17, alpha: 1), isMetallic: true)
+        let seatDark = SimpleMaterial(
+            color: NSColor(red: 0.045, green: 0.07, blue: 0.13, alpha: 1), isMetallic: false)
+        let seatMid = SimpleMaterial(
+            color: NSColor(red: 0.10, green: 0.13, blue: 0.20, alpha: 1), isMetallic: false)
+        for side: Float in [-1, 1] {
+            let sideColor = side < 0 ? brightCyan : brightPink
+            let wing = side * 2.6
+            // Stepped spectator terraces and readable individual seat backs.
+            for rowIndex in 0..<4 {
+                let lateral = side * (1.50 + Float(rowIndex) * 0.36)
+                let rise = Float(rowIndex) * 0.20
+                root.addChild(modelBox("stand-terrace", size: [0.37, 0.18, 4.2],
+                    pos: [lateral, 0.18 + rise, -0.32],
+                    material: rowIndex.isMultiple(of: 2) ? seatDark : seatMid))
+                for seatIndex in 0..<8 {
+                    let z = -2.05 + Float(seatIndex) * 0.49
+                    root.addChild(modelBox("spectator-seat", size: [0.23, 0.24, 0.07],
+                        pos: [lateral, 0.39 + rise, z], material: frameMetal))
+                }
+                root.addChild(modelBox("stand-edge-light",
+                    size: [0.025, 0.022, 4.25],
+                    pos: [lateral - side * 0.17, 0.30 + rise, -0.32],
+                    material: UnlitMaterial(color: sideColor.withAlphaComponent(0.43))))
+            }
+            // Upright illuminated framework breaks up the black void.
+            for z: Float in [-2.4, -0.9, 0.7] {
+                root.addChild(modelBox("arena-column", size: [0.075, 1.9, 0.075],
+                    pos: [wing, 1.02, z], material: frameMetal))
+                root.addChild(modelBox("column-light", size: [0.024, 1.58, 0.025],
+                    pos: [wing - side * 0.045, 1.05, z],
+                    material: UnlitMaterial(color: sideColor.withAlphaComponent(0.72))))
+            }
+            root.addChild(modelBox("wall-display", size: [0.085, 0.34, 2.5],
+                pos: [wing + side * 0.15, 1.68, -0.55],
+                material: UnlitMaterial(color: sideColor.withAlphaComponent(0.30))))
+        }
+        // A distant back-wall band gives the table a clear venue horizon.
+        root.addChild(modelBox("rear-arena-wall", size: [7.0, 1.85, 0.11],
+            pos: [0, 0.85, -3.05], material: seatDark))
+        root.addChild(modelBox("rear-score-ribbon", size: [4.8, 0.065, 0.13],
+            pos: [0, 1.56, -2.97], material: UnlitMaterial(color: brightCyan.withAlphaComponent(0.55))))
         for x: Float in [-1.8, 1.8] {
             let bar = modelBox("arena-lights", size: [0.08, 0.07, 3.6],
                                 pos: [x, 0.24, 0],
@@ -220,7 +266,7 @@ struct NeonRallyArena: View {
     private func makePaddle(_ name: String, color: NSColor) -> Entity {
         let base = Entity()
         base.name = name
-        let head = ModelEntity(mesh: .generateBox(size: [0.27, 0.29, 0.025]),
+        let head = ModelEntity(mesh: .generateBox(size: [Float(TableMatch.paddleHalfWidth * 2), Float(TableMatch.paddleHalfHeight * 2), 0.035]),
                                materials: [SimpleMaterial(color: color, isMetallic: true)])
         head.name = "paddle-face"
         base.addChild(head)
