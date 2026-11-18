@@ -141,9 +141,15 @@ struct TableMatch: Codable {
         }
         let near = side == .left
         let x = near ? playerX : opponentX
-        let zReady = near ? b.z > 0.38 : b.z < -0.38
-        let reachable = abs(b.x - x) <= (shot == .smash ? 0.32 : 0.28)
-        guard zReady, reachable, b.y < 1.48 && b.y >= Self.tableHeight - 0.01 else {
+        // A return is legal anywhere on the receiving half after its first
+        // bounce. The old >0.38 m trigger blocked many genuine returns near
+        // the net and made the rally feel unresponsive.
+        let zReady = near ? b.z > 0.10 : b.z < -0.10
+        let incoming = near ? b.vz > 0 : b.vz < 0
+        let reach = shot == .smash ? 0.37 : 0.43
+        let reachable = abs(b.x - x) <= reach
+        guard zReady, incoming, reachable, b.y < 1.65 &&
+              b.y >= Self.tableHeight - 0.01 else {
             banner = reachable ? "TIMING · TRACK THE BALL" : "TOO FAR FROM THE BALL"
             return false
         }
@@ -262,7 +268,8 @@ struct TableMatch: Codable {
             }
             ball = b
             if rules.players == .solo && b.lastHit == .left &&
-               b.receiverBounceCount == 1 && b.z < -0.48 && b.z > -1.35 {
+               b.receiverBounceCount == 1 && b.vz < 0 &&
+               b.z < -0.25 && b.z > -1.40 {
                 let skillReach: Double = rules.skill == .cadet ? 0.26 : (rules.skill == .veteran ? 0.33 : 0.40)
                 let likelyHit = abs(b.x - opponentX) < skillReach && b.y < 1.34
                 if likelyHit {
@@ -303,21 +310,42 @@ struct TableMatch: Codable {
 
     private mutating func strike(from side: PaddleSide, shot: TableShot, targetX: Double) {
         guard var b = ball else { return }
-        let destinationZ = side == .left ? -0.97 : 0.97
-        let travel: Double
+        let destinationZ = side == .left ? -0.94 : 0.94
+        // Old 0.59-0.72 second arcs looked like floating balloons. Work from
+        // a physically solved landing point and choose a shorter, readable
+        // time of flight; the net clearance constraint is then enforced.
+        let baseDuration: Double
         switch shot {
-        case .drive: travel = 0.59
-        case .backspin: travel = 0.72
-        case .smash: travel = 0.44
+        case .drive: baseDuration = 0.43
+        case .backspin: baseDuration = 0.52
+        case .smash: baseDuration = 0.38
         }
-        let safeFlight = max(0.36, travel / rules.ballFactor)
-        let elevation = Self.tableHeight + Self.ballRadius + 0.025
-        b.vx = (targetX - b.x) / safeFlight
-        b.vz = (destinationZ - b.z) / safeFlight
-        let physicsGravity = Self.gravity - (shot == .backspin ? 0.45 : shot == .smash ? -0.25 : 0)
-        b.vy = (elevation - b.y + 0.5 * physicsGravity * safeFlight * safeFlight) / safeFlight
-        b.verticalSpin = shot == .backspin ? 0.45 : (shot == .smash ? -0.25 : 0)
-        b.sidewaysSpin = shot == .drive ? (targetX - b.x) * 0.12 : (targetX - b.x) * 0.2
+        let pace = 0.85 + 0.15 * rules.ballFactor
+        var duration = baseDuration / pace
+        let verticalSpin: Double = shot == .backspin ? 0.35 : (shot == .smash ? -0.18 : 0)
+        let effectiveGravity = Self.gravity - verticalSpin
+        let landingY = Self.tableHeight + Self.ballRadius + 0.005
+        // Because this is a ballistic arc, the vertical height at the net is
+        // the interpolation between impact and landing plus an arc term.
+        // Increase the flight duration until it clears the real net by 4 cm.
+        // This prevents low, valid returns from faulting into the cord.
+        let fractionAtNet = min(0.96, max(0.04,
+            abs(b.z) / max(0.001, abs(b.z) + abs(destinationZ))))
+        let minNetCenter = Self.tableHeight + Self.netHeight + Self.ballRadius + 0.04
+        while duration < 0.75 {
+            let atNet = b.y * (1 - fractionAtNet) + landingY * fractionAtNet
+                + 0.5 * effectiveGravity * duration * duration
+                  * fractionAtNet * (1 - fractionAtNet)
+            if atNet >= minNetCenter { break }
+            duration += 0.012
+        }
+        b.vx = (targetX - b.x) / duration
+        b.vz = (destinationZ - b.z) / duration
+        b.vy = (landingY - b.y + 0.5 * effectiveGravity * duration * duration) / duration
+        b.verticalSpin = verticalSpin
+        // Sidespin bends the flight gradually but shouldn't move it entirely
+        // off the receiver's side after targeting a valid in-bounds landing.
+        b.sidewaysSpin = (targetX - b.x) * (shot == .backspin ? 0.06 : 0.04)
         b.lastHit = side
         b.isServe = false
         b.ownServeBounce = false
