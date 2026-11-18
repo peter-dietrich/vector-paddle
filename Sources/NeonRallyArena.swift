@@ -90,14 +90,16 @@ struct NeonRallyArena: View {
 
         let camera = PerspectiveCamera()
         camera.name = "arena-camera"
-        camera.position = SIMD3<Float>(0, 2.65, 3.85)
-        camera.look(at: SIMD3<Float>(0, 0.82, -0.10),
-                    from: SIMD3<Float>(0, 2.65, 3.85), relativeTo: root)
+        // Courtside broadcast framing: substantially larger table and net
+        // within the same playfield without changing the regulation geometry.
+        camera.position = SIMD3<Float>(0, 2.22, 2.95)
+        camera.look(at: SIMD3<Float>(0, 0.84, -0.12),
+                    from: SIMD3<Float>(0, 2.22, 2.95), relativeTo: root)
         root.addChild(camera)
 
         let floor = modelBox("floor", size: [9.0, 0.08, 10.0],
                              pos: [0, -0.17, -0.2],
-                             material: SimpleMaterial(color: NSColor(red: 0.025, green: 0.038, blue: 0.082, alpha: 1), isMetallic: false))
+                             material: UnlitMaterial(color: NSColor(red: 0.014, green: 0.025, blue: 0.052, alpha: 1)))
         root.addChild(floor)
 
         let platform = modelBox("platform", size: [2.24, 0.10, 3.34],
