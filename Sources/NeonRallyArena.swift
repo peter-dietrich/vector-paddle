@@ -409,5 +409,5 @@ private final class PaddleTrackingView: NSView {
         send(event)
         onClick?()
     }
-    override func acceptsFirstMouse(for event: NSEvent) -> Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
