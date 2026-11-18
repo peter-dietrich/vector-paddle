@@ -68,6 +68,42 @@ import Foundation
         deuce.start()
         deuce.score.player = 10; deuce.score.opponent = 10
         assert(deuce.isDeuce)
+        // Explicit regression for the original all-serves-hit-the-net bug.
+        // Track both servers through the own-side bounce, net crossing and
+        // receiving-side bounce, rather than merely checking a point resolves.
+        for server in [PaddleSide.left, .right] {
+            var serveRules = PaddleRules()
+            serveRules.style = .modern
+            serveRules.players = .local
+            for speed in [60, 100, 160] {
+                serveRules.ballSpeedPercent = speed
+                var check = TableMatch(rules: serveRules)
+                check.start()
+                check.serveSide = server
+                let launched = server == .left ? check.serve() : check.serveSecondPlayer()
+                assert(launched, "service must launch")
+                var ownBounce = false
+                var clearedNet = false
+                var oppositeBounce = false
+                for _ in 0..<240 {
+                    _ = check.tick(1.0 / 240.0)
+                    if let flight = check.ball {
+                        if flight.ownServeBounce { ownBounce = true }
+                        if (server == .left ? flight.z < 0 : flight.z > 0) {
+                            if flight.y - TableMatch.ballRadius >
+                                TableMatch.tableHeight + TableMatch.netHeight {
+                                clearedNet = true
+                            }
+                        }
+                        if flight.receiverBounceCount == 1 { oppositeBounce = true; break }
+                    } else { break }
+                }
+                assert(ownBounce, "serve must touch server half")
+                assert(clearedNet, "serve must clear net at every speed")
+                assert(oppositeBounce, "serve must bounce on receiver half")
+            }
+        }
+        print("PASS: legal near/far serves clear net and bounce on both halves at 60/100/160%")
         print("PASS: 3D serves, ball physics, point resolution, deuce, save/restore")
         print("PASS: serve, scoring, paddle rebound, match win, pickups, pause, save/restore")
     }
