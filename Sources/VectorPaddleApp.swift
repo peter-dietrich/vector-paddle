@@ -96,7 +96,7 @@ final class PaddleSession: ObservableObject {
     private func processKey(_ event: NSEvent) -> Bool {
         guard !showSettings && !showSaves && !showInitials else { return false }
         let code = event.keyCode
-        let controlledKeys: Set<UInt16> = [13, 1, 126, 125, 35, 15, 36, 76, 49, 2, 0, 11, 18, 19, 20]
+        let controlledKeys: Set<UInt16> = [13, 1, 126, 125, 123, 124, 35, 15, 36, 76, 49, 2, 0, 11, 18, 19, 20]
         guard controlledKeys.contains(code) else { return false }
         if event.type == .keyUp { keys.remove(code); return true }
         keys.insert(code)
