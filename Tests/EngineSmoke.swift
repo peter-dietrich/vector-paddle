@@ -146,6 +146,7 @@ import Foundation
         }
         var cpu = TableMatch(rules: PaddleRules(style: .modern))
         cpu.start()
+        cpu.awaitingServe = false
         cpu.ball = TableBall(x: 0, y: 1.05, z: -0.55, vx: 0,
                              vy: 0, vz: -1.9, lastHit: .left,
                              receiverBounceCount: 1)
