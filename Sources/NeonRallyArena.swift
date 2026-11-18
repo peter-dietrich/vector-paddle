@@ -10,6 +10,7 @@ struct NeonRallyArena: View {
     let stroke: () -> Void
 
     private let cyan = Color(red: 0.20, green: 0.91, blue: 1.0)
+    @State private var paddleLink = ImmediatePaddleLink()
 
     var body: some View {
         GeometryReader { proxy in
@@ -17,11 +18,13 @@ struct NeonRallyArena: View {
                 RealityView { content in
                     let root = buildArena()
                     content.add(root)
+                    paddleLink.attach(root)
                 } update: { content in
                     guard let root = content.entities.first(where: { $0.name == "neon-rally" }) else { return }
-                    if let nearPaddle = root.findEntity(named: "near-paddle") {
-                        nearPaddle.position.x = Float(match.playerX)
-                    }
+                    // The direct input path already moves the visual entity.
+                    // Only let frame-driven physics sync override it when
+                    // there has been no recent cursor event.
+                    paddleLink.syncFromPhysics(match.playerX)
                     if let farPaddle = root.findEntity(named: "far-paddle") {
                         farPaddle.position.x = Float(match.opponentX)
                     }
@@ -41,17 +44,20 @@ struct NeonRallyArena: View {
                     }
                 }
                 .background(Color(red: 0.012, green: 0.022, blue: 0.050))
-                .onContinuousHover { phase in
-                    if case .active(let point) = phase {
+                .overlay {
+                    // AppKit delivers native tracking-area mouse events without
+                    // waiting for SwiftUI to invalidate and rebuild the whole
+                    // game view. Movement updates RealityKit immediately.
+                    NativePaddlePointer(onMove: { point, size in
                         let worldX = NeonRallyProjection.worldX(
                             pointerX: Double(point.x),
-                            width: Double(proxy.size.width),
-                            height: Double(proxy.size.height)
+                            width: Double(size.width),
+                            height: Double(size.height)
                         )
+                        paddleLink.moveImmediately(to: worldX)
                         aimChanged(worldX)
-                    }
+                    }, onClick: stroke)
                 }
-                .onTapGesture(perform: stroke)
                 VStack {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -314,4 +320,94 @@ struct NeonRallyArena: View {
         entity.position = pos
         return entity
     }
+}
+
+
+/// Updates just the RealityKit paddle transform in the mouse-event callback.
+/// The ball simulation still consumes the same coordinate on its next tick.
+@MainActor
+private final class ImmediatePaddleLink {
+    private weak var nearPaddle: Entity?
+    private var lastDirectEvent: TimeInterval = -1000
+
+    func attach(_ root: Entity) {
+        nearPaddle = root.findEntity(named: "near-paddle")
+    }
+
+    func moveImmediately(to worldX: Double) {
+        guard worldX.isFinite else { return }
+        lastDirectEvent = ProcessInfo.processInfo.systemUptime
+        nearPaddle?.position.x = Float(worldX)
+    }
+
+    func syncFromPhysics(_ worldX: Double) {
+        // Avoid pulling the visible paddle back to last frame's position
+        // during fast pointer movement. Keyboard control still catches up
+        // as soon as direct mouse input stops.
+        if ProcessInfo.processInfo.systemUptime - lastDirectEvent < 0.065 {
+            return
+        }
+        nearPaddle?.position.x = Float(worldX)
+    }
+}
+
+/// A transparent AppKit input surface; no polling and no SwiftUI hover delay.
+private struct NativePaddlePointer: NSViewRepresentable {
+    var onMove: (CGPoint, CGSize) -> Void
+    var onClick: () -> Void
+
+    func makeNSView(context: Context) -> PaddleTrackingView {
+        let view = PaddleTrackingView()
+        view.onMove = onMove
+        view.onClick = onClick
+        return view
+    }
+
+    func updateNSView(_ nsView: PaddleTrackingView, context: Context) {
+        nsView.onMove = onMove
+        nsView.onClick = onClick
+    }
+}
+
+private final class PaddleTrackingView: NSView {
+    var onMove: ((CGPoint, CGSize) -> Void)?
+    var onClick: (() -> Void)?
+    private var movementArea: NSTrackingArea?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.acceptsMouseMovedEvents = true
+        updateTrackingAreas()
+    }
+
+    override func updateTrackingAreas() {
+        if let area = movementArea {
+            removeTrackingArea(area)
+        }
+        super.updateTrackingAreas()
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .mouseEnteredAndExited,
+                      .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        movementArea = area
+    }
+
+    private func send(_ event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        onMove?(point, bounds.size)
+    }
+
+    override func mouseMoved(with event: NSEvent) { send(event) }
+    override func mouseEntered(with event: NSEvent) { send(event) }
+    override func mouseDragged(with event: NSEvent) { send(event) }
+    override func mouseDown(with event: NSEvent) {
+        send(event)
+        onClick?()
+    }
+    override func acceptsFirstMouse(for event: NSEvent) -> Bool { true }
 }
