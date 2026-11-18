@@ -111,10 +111,18 @@ struct TableMatch: Codable {
         let direction = side == .left ? -1.0 : 1.0
         let x = side == .left ? playerX : opponentX
         let z = side == .left ? 1.18 : -1.18
-        ball = TableBall(x: x, y: 0.98, z: z,
-                         vx: (side == .left ? -x : x) * 0.2,
-                         vy: 0.83,
-                         vz: direction * 2.25,
+        // A legal serve must land on this half, rebound ABOVE the net cord,
+        // then land on the other half. The old 0.83 m/s toss and 0.77 bounce
+        // lost too much vertical energy: virtually every serve hit the net.
+        //
+        // Release 30 cm above the table, near level; a lively first bounce
+        // (0.90 restitution) creates a reliable second arc over the net.
+        // Keep serve pace bounded so Custom speed settings remain legal.
+        let speed = 2.50 + (rules.ballFactor - 1.0) * 0.30
+        ball = TableBall(x: x, y: 1.08, z: z,
+                         vx: (side == .left ? -x : x) * 0.16,
+                         vy: 0.0,
+                         vz: direction * speed,
                          lastHit: side,
                          isServe: true)
         awaitingServe = false
@@ -234,7 +242,10 @@ struct TableMatch: Codable {
                     banner = receivingSide == .left ? "RETURN THE BALL · CLICK" : "OPPONENT RETURNING"
                 }
                 b.y = Self.tableHeight + Self.ballRadius
-                b.vy = abs(b.vy) * 0.77
+                // The first service bounce must preserve sufficient height
+                // for the ball to cross the 15.25 cm net; normal rally
+                // returns retain the lower restitution.
+                b.vy = abs(b.vy) * (b.isServe && b.ownServeBounce ? 0.90 : 0.77)
                 b.vx *= 0.95
                 b.vz *= 0.93
             }
