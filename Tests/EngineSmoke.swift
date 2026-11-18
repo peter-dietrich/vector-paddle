@@ -103,6 +103,61 @@ import Foundation
                 assert(oppositeBounce, "serve must bounce on receiver half")
             }
         }
+        // The old suite checked only serves and allowed the game to be
+        // completely unplayable after the first valid receiver bounce.
+        // Exercise actual player and far-side rally strokes.
+        for server in [PaddleSide.left, .right] {
+            for shot in TableShot.allCases {
+                for contactZ in [0.24, 0.55, 1.02] {
+                    for contactY in [0.80, 0.98, 1.35] {
+                        var game = TableMatch(rules: PaddleRules(style: .modern,
+                             players: .local))
+                        game.start()
+                        let side = server
+                        let sourceZ = side == .left ? contactZ : -contactZ
+                        game.ball = TableBall(x: 0, y: contactY, z: sourceZ,
+                            vx: 0, vy: 0.25, vz: side == .left ? 2.5 : -2.5,
+                            lastHit: side.opposite, receiverBounceCount: 1)
+                        // Smashes require a raised ball; ordinary drive and
+                        // backspin must work at normal bounce heights.
+                        if shot == .smash && contactY < 0.88 { continue }
+                        assert(game.swing(side: side, shot: shot),
+                            "a legal returning swing should connect")
+                        var crossed = false
+                        var landed = false
+                        for _ in 0..<240 {
+                            _ = game.tick(1.0/240.0)
+                            if let flying = game.ball {
+                                if side == .left ? flying.z < 0 : flying.z > 0 {
+                                    crossed = true
+                                }
+                                if flying.receiverBounceCount == 1 {
+                                    landed = true
+                                    break
+                                }
+                            } else { break }
+                        }
+                        assert(crossed, "rally stroke must clear the net")
+                        assert(landed, "rally stroke must land on receiver court")
+                    }
+                }
+            }
+        }
+        var cpu = TableMatch(rules: PaddleRules(style: .modern))
+        cpu.start()
+        cpu.ball = TableBall(x: 0, y: 1.05, z: -0.55, vx: 0,
+                             vy: 0, vz: -1.9, lastHit: .left,
+                             receiverBounceCount: 1)
+        var cpuReturned = false
+        for _ in 0..<180 {
+            _ = cpu.tick(1.0/240.0)
+            if cpu.ball?.lastHit == .right && cpu.ball?.receiverBounceCount == 0 {
+                cpuReturned = true
+                break
+            }
+        }
+        assert(cpuReturned, "CPU must make an actual rally return")
+        print("PASS: player and opponent drive/backspin/smash trajectories and CPU rally")
         print("PASS: legal near/far serves clear net and bounce on both halves at 60/100/160%")
         print("PASS: 3D serves, ball physics, point resolution, deuce, save/restore")
         print("PASS: serve, scoring, paddle rebound, match win, pickups, pause, save/restore")
