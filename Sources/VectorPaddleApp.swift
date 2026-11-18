@@ -143,7 +143,7 @@ final class PaddleSession: ObservableObject {
             guard neon.phase == .playing else { return }
             let leftAxis = (keys.contains(2) ? 1.0 : 0) - (keys.contains(0) ? 1.0 : 0)
             let rightAxis = (keys.contains(124) ? 1.0 : 0) - (keys.contains(123) ? 1.0 : 0)
-            let events = neon.tick(dt, nearAxis: leftAxis, farAxis: rightAxis)
+            let events = neon.tick(dt, nearAxis: leftAxis, farAxis: rightAxis, selectedShot: selectedShot)
             if let event = events.last { audio.play(event, enabled: engine.rules.soundEnabled) }
             if neon.phase == .finished && !promptedThisMatch {
                 promptedThisMatch = true
