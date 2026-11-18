@@ -113,6 +113,7 @@ import Foundation
                         var game = TableMatch(rules: PaddleRules(style: .modern,
                              players: .local))
                         game.start()
+                        game.awaitingServe = false // a live rally after the serve
                         let side = server
                         let sourceZ = side == .left ? contactZ : -contactZ
                         game.ball = TableBall(x: 0, y: contactY, z: sourceZ,
