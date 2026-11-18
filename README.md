@@ -1,63 +1,84 @@
 # Vector Paddle — Fun City Arcade
 
-Native macOS arcade paddle game, inspired by the early-1970s and 1980s two-paddle genre. **v0.1.0 (build 1)**. Both cabinets are original implementations, sharing the same physics and macOS app.
+Native macOS arcade game with two deliberately distinct cabinets. **v0.2.0 (build 2)**.
 
-## Two cabinets
+## Classic — original paddle tennis
 
-**Classic** is stark black-and-white paddle tennis: sharp-angle rebounds based on where the ball hits, a center dash line, no upgrades and a first-to-11 match by default.
+Classic remains the v0.1.0 black-and-white Pong-style cabinet: two horizontal-moving-ball paddles, rallies, CPU skill settings and arcade scoring. Its original physics and original saved game slots are unchanged.
 
-**Modern** is a fully drawn neon-tech arena with bright solid paddles, illuminated rails, ball trails and arena pickups. Four modern-only pickups: **WIDE** grows the last hitter's paddle; **SPLIT** creates a second ball (maximum three); **SLOW** dilates ball speed temporarily; **BOOST** accelerates play temporarily. Both modes offer the same scoring and difficulty configuration.
+## Modern — NEON RALLY
+
+Modern now runs its own physically simulated 3D table tennis match rendered with Apple's RealityKit. **This is a development candidate, not a finished professional table-tennis simulation.**
+
+- Opaque table with net, sidelines, legs, illuminated perimeter and separate paddles, from a behind-the-player perspective
+- 3D ball position/velocity with gravity, table bounce, net collision, spin effect and out-of-bounds detection
+- A mandatory bounce on the server's half followed by a bounce on the receiver's half during service; returning after the bounce
+- Move the paddle with your pointer or A/D, then click to return; select Drive, Backspin, or Smash using 1/2/3
+- Space to serve and an automatic CPU serve for opponent turns
+- CPU side-to-side anticipation tuned by Cadet, Veteran and Ace difficulty, with changing shot placement
+- 11-point games, win by two, service alternating every two points and at deuce, best-of-three matches
+- Modern-specific five match save slots that restore paused; Classic saves are kept independent
+- Independent high score with three-character initials, plus current score, rallies and games in the right telemetry
+
+**Controls in Modern:**
+
+| Input | Function |
+| --- | --- |
+| Move pointer within arena | Position near-side paddle and choose cross-table aim |
+| A / D | Move near-side paddle left / right |
+| Click, Return | Hit the ball after it bounces on your half |
+| 1 / 2 / 3 | Drive / Backspin / Smash shot |
+| Space | Serve when it is your turn |
+| P | Pause / resume |
+| R | New game |
+| Left / Right arrow | Move far-side paddle in local 2-player mode |
+| Space | Second player serve during their turn |
+
+Classic controls remain W/S and Up/Down paddles, Return/Space to start, P to pause and R to restart.
 
 ## Standard Fun City features
 
-- Classic and Modern cabinet choice, **Cadet / Veteran / Ace** CPU difficulty, local 1-player or 2-player mode.
-- Version string in the banner; `MARKETING_VERSION=0.1.0`, `CURRENT_PROJECT_VERSION=1`.
-- Custom Game: winning points (5/7/11/15/21), ball speed, paddle size, mouse steering, power-ups, sound effects, enhanced effects, reduced flashes.
-- Save, recall and delete **five** independent game slots; resumed games reopen **paused**.
-- Save and reload named **Custom Game** setups separately from matches.
-- Arcade-point scoring (rallies, returns, points, match wins), independent Classic/Modern personal bests and **three-letter initials** after new records.
-- Aggregate Fun City high-score keys (`VectorPaddle.HighScore.v1` and `VectorPaddle.Initials.v1`) saved in bundle `io.vectorpaddle.game`.
-- App preferences and saves stored locally with UserDefaults. No cloud connection or external dependencies.
+- Choice of Classic and Modern, Cadet/Veteran/Ace, solo or local 2-player
+- Custom game presets, speed and other configuration, independent Classic and Modern save slots
+- Personal best with 3-letter initials, version in game banner and Fun City bundle identifier
+- Key/value preferences stored locally in UserDefaults (no backend, no imported licensed artwork)
+- Bundle identifier: `io.vectorpaddle.game`
+- Test script: `bash scripts/test-engine.sh`
+- Xcode scheme: `VectorPaddle`
 
-## Open in Xcode
+Modern defaults to table-tennis rules; the older Pong-style multiball and arena powerups are not part of Modern's default table-tennis physics. Those effects stay within the original engine, while Classic intentionally disables power-ups.
 
-Clone or extract this folder, then:
+## Sync and run on your Mac
 
 ```bash
-cd ~/Documents/GitHub/vector-paddle
+mkdir -p ~/Documents/GitHub
+cd ~/Documents/GitHub
+if [ -d vector-paddle/.git ]; then
+  cd vector-paddle
+  git switch main
+  git pull --ff-only origin main
+else
+  git clone https://github.com/peter-dietrich/vector-paddle.git
+  cd vector-paddle
+fi
 open VectorPaddle.xcodeproj
 ```
 
-Choose the **VectorPaddle** scheme, **My Mac**, then press **Command-R**.
+Select the VectorPaddle scheme, **My Mac**, press **Command-R**. macOS 14+.
 
-Build from the macOS Terminal:
+Terminal build:
 
 ```bash
 xcodebuild -project VectorPaddle.xcodeproj -scheme VectorPaddle -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
-./scripts/test-engine.sh
+bash scripts/test-engine.sh
 ```
 
-Minimum macOS target: **14.0**. Project includes a shared Xcode scheme and GitHub Actions macOS build workflow.
+## Developer notes
 
-## Controls
+- `Sources/PaddleEngine.swift` contains original Classic rules.
+- `Sources/TableTennisEngine.swift` contains independent Foundation-only 3D table-tennis match rules.
+- `Sources/NeonRallyArena.swift` owns RealityKit visual geometry and positioning.
+- `Sources/VectorPaddleApp.swift` owns the native macOS app, scoreboards, input, persistence, presets and pause.
+- `Tests/EngineSmoke.swift` includes headless engine tests, run through GitHub Actions with a native Xcode build.
 
-| Key | Function |
-| --- | --- |
-| W / S | Player 1 up / down |
-| ↑ / ↓ | Player 2 up / down in Local 2 Player |
-| Mouse movement in arena | Player 1 steering when enabled under Custom Game |
-| Return / Space | Start match / start a rematch / resume |
-| P | Pause / resume |
-| R | Reset / new match |
-
-## Fun City integration
-
-Bundle ID: `io.vectorpaddle.game`. The launcher can locate and launch `VectorPaddle.app`. A new catalog entry and aggregate-high-score specification must be added to the `fun-city` project when this repository is published. Launcher distribution as an installable download also needs a signed release asset, not included here.
-
-## Testing status
-
-The gameplay engine has passed a real Swift compiler smoke test (initial serve, scoring, Classic and Modern, pause and Codable save/restore). **The macOS SwiftUI app has not yet been built in Xcode or play-tested on a Mac**; the bundled workflow will check this when the project is uploaded to GitHub. This is the first playable development candidate, not a signed release.
-
-## Attribution
-
-Original code and artwork are procedural/SwiftUI-drawn. No Pong trademark or licensed graphics are included in the in-game branding.
+GitHub is the source of truth. No local source patching or ZIP merge is needed.
