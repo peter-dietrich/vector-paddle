@@ -48,6 +48,10 @@ final class PaddleSession: ObservableObject {
     private var keyboardMonitor: Any?
     private var lastTick = Date()
     private var promptedThisMatch = false
+    // Native mouse tracking writes a lightweight target here. Publishing the
+    // entire TableMatch for every pointer event used to re-render the arena,
+    // sidebar and controls and was a major source of apparent input latency.
+    private var pendingPointerX: Double?
     private let preferences = UserDefaults.standard
 
     init() {
@@ -83,9 +87,21 @@ final class PaddleSession: ObservableObject {
     var activeLongest: Int { isModern ? neon.longestRally : engine.longestRally }
     var activeReturns: Int { isModern ? neon.returns : engine.bounceCount }
     var activeWinner: PaddleSide? { isModern ? neon.winner : engine.winner }
-    func setPointer(_ x: Double) { if isModern { neon.movePlayer(to: x); neon.aim(to: x) } }
+    func setPointer(_ x: Double) {
+        guard isModern, x.isFinite else { return }
+        // The renderer can move instantly on the mouse event; the simulation
+        // consumes the newest position on its next fixed tick.
+        pendingPointerX = min(0.70, max(-0.70, x))
+    }
+    private func syncPointerForPhysics() {
+        if let target = pendingPointerX {
+            neon.movePlayer(to: target)
+            neon.aim(to: target)
+        }
+    }
     func swing() {
         guard isModern else { return }
+        syncPointerForPhysics()
         let didHit = neon.swing(shot: selectedShot)
         if didHit { audio.play(.paddle, enabled: engine.rules.soundEnabled) }
     }
@@ -143,6 +159,10 @@ final class PaddleSession: ObservableObject {
             guard neon.phase == .playing else { return }
             let leftAxis = (keys.contains(2) ? 1.0 : 0) - (keys.contains(0) ? 1.0 : 0)
             let rightAxis = (keys.contains(124) ? 1.0 : 0) - (keys.contains(123) ? 1.0 : 0)
+            // Keyboard input takes ownership until the next mouse movement.
+            // Otherwise a stale stationary pointer would snap the paddle back.
+            if leftAxis != 0 { pendingPointerX = nil }
+            else { syncPointerForPhysics() }
             let events = neon.tick(dt, nearAxis: leftAxis, farAxis: rightAxis, selectedShot: selectedShot)
             if let event = events.last { audio.play(event, enabled: engine.rules.soundEnabled) }
             if neon.phase == .finished && !promptedThisMatch {
@@ -179,6 +199,7 @@ final class PaddleSession: ObservableObject {
         engine.reset(using: rules ?? engine.rules)
         neon.reset(engine.rules)
         selectedShot = .drive
+        pendingPointerX = nil
         promptedThisMatch = false
         lastTick = Date()
         mouseY = nil
@@ -246,6 +267,7 @@ final class PaddleSession: ObservableObject {
             guard var saved = readModernSlot(slot) else { return }
             saved.match.phase = .paused
             neon = saved.match
+            pendingPointerX = nil
             engine.reset(using: neon.rules)
             promptedThisMatch = false
             showSaves = false
