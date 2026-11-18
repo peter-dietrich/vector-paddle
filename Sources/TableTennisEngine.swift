@@ -33,6 +33,13 @@ struct TableMatch: Codable {
     static let ballRadius = 0.024
     static let netHeight = 0.1525
     static let gravity = 9.81
+    // The physical contact plane lies inside the table edge so that a serve
+    // reaches the racket AFTER its receiving bounce but BEFORE a second bounce.
+    // Both the visual paddle and the simulation use the same dimensions.
+    static let paddleContactZ = 1.03
+    static let paddleCenterY = 1.02
+    static let paddleHalfWidth = 0.21
+    static let paddleHalfHeight = 0.24
 
     var rules: PaddleRules
     var phase: PaddlePhase = .ready
@@ -176,7 +183,8 @@ struct TableMatch: Codable {
         return true
     }
 
-    mutating func tick(_ delta: Double, nearAxis: Double = 0, farAxis: Double = 0) -> [PaddleEvent] {
+    mutating func tick(_ delta: Double, nearAxis: Double = 0, farAxis: Double = 0,
+                       selectedShot: TableShot = .drive) -> [PaddleEvent] {
         guard phase == .playing && delta.isFinite && delta > 0 else { return [] }
         let total = min(delta, 1.0/24.0)
         let steps = max(1, Int(ceil(total / (1.0/240.0))))
@@ -269,29 +277,62 @@ struct TableMatch: Codable {
                 events.append(.score)
                 continue
             }
-            ball = b
-            if rules.players == .solo && b.lastHit == .left &&
-               b.receiverBounceCount == 1 && b.vz < 0 &&
-               b.z < -0.25 && b.z > -1.40 {
-                let skillReach: Double = rules.skill == .cadet ? 0.26 : (rules.skill == .veteran ? 0.33 : 0.40)
-                let likelyHit = abs(b.x - opponentX) < skillReach && b.y < 1.34
-                if likelyHit {
-                    let intended: Double
-                    switch aiStyle % 3 {
-                    case 0: intended = -0.54
-                    case 1: intended = 0.53
-                    default: intended = 0.06
+            // Detect a real crossing of the racket plane, not an arbitrary
+            // click. A legal return may happen only AFTER one bounce on the
+            // receiver's half and when the incoming ball overlaps the paddle.
+            // Substeps prevent fast balls from tunnelling through the racket.
+            if b.receiverBounceCount == 1 {
+                let receiver = b.lastHit.opposite
+                let plane = receiver == .left ? Self.paddleContactZ : -Self.paddleContactZ
+                let crosses = receiver == .left
+                    ? (b.vz > 0 && oldZ < plane && b.z >= plane)
+                    : (b.vz < 0 && oldZ > plane && b.z <= plane)
+                if crosses {
+                    let paddleX = receiver == .left ? playerX : opponentX
+                    // A slightly forgiving arcade contact envelope is much
+                    // closer to the displayed racket than the old invisible
+                    // click-anywhere behavior.
+                    let horizontal = abs(b.x - paddleX) <=
+                        Self.paddleHalfWidth + Self.ballRadius + 0.06
+                    let vertical = abs(b.y - Self.paddleCenterY) <=
+                        Self.paddleHalfHeight + Self.ballRadius
+                    if horizontal && vertical {
+                        ball = b
+                        let chosen: TableShot
+                        let target: Double
+                        if receiver == .left {
+                            chosen = selectedShot == .smash && b.y < 0.88
+                                ? .drive : selectedShot
+                            target = clampTable(aimX + (b.x - playerX) * 0.35, -0.68, 0.68)
+                        } else {
+                            chosen = .drive
+                            if rules.players == .solo {
+                                switch aiStyle % 3 {
+                                case 0: target = -0.49
+                                case 1: target = 0.48
+                                default: target = 0.06
+                                }
+                                aiStyle += 1
+                            } else {
+                                target = clampTable(-aimX + (b.x - opponentX) * 0.35, -0.68, 0.68)
+                            }
+                        }
+                        strike(from: receiver, shot: chosen, targetX: target)
+                        score.currentRally += 1
+                        score.longestRally = max(score.currentRally, score.longestRally)
+                        if receiver == .left {
+                            score.returns += 1
+                            score.pointsAwarded += 30 + min(120, score.currentRally * 8)
+                        }
+                        banner = receiver == .left
+                            ? "PADDLE CONTACT · \(chosen.rawValue.uppercased())"
+                            : "CPU RETURN · TRACK THE BALL"
+                        events.append(.paddle)
+                        continue
                     }
-                    aiStyle += 1
-                    let error = rules.skill == .cadet ? 0.22 : (rules.skill == .veteran ? 0.12 : 0.04)
-                    strike(from: .right, shot: .drive,
-                           targetX: clampTable(intended + Double.random(in: -error...error), -0.68, 0.68))
-                    score.currentRally += 1
-                    score.longestRally = max(score.currentRally, score.longestRally)
-                    banner = "INCOMING · WAIT FOR BOUNCE"
-                    events.append(.paddle)
                 }
             }
+            ball = b
         }
         return events
     }
