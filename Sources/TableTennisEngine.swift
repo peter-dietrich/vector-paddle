@@ -33,13 +33,13 @@ struct TableMatch: Codable {
     static let ballRadius = 0.024
     static let netHeight = 0.1525
     static let gravity = 9.81
-    // The physical contact plane lies inside the table edge so that a serve
-    // reaches the racket AFTER its receiving bounce but BEFORE a second bounce.
-    // Both the visual paddle and the simulation use the same dimensions.
-    static let paddleContactZ = 1.03
-    static let paddleCenterY = 1.02
-    static let paddleHalfWidth = 0.21
-    static let paddleHalfHeight = 0.24
+    // Move the smaller oval racket toward the back end line. Render and
+    // physical contact use these shared coordinates; never resize collision
+    // and visual geometry independently.
+    static let paddleContactZ = 1.22
+    static let paddleCenterY = 0.99
+    static let paddleHalfWidth = 0.127
+    static let paddleHalfHeight = 0.153
 
     var rules: PaddleRules
     var phase: PaddlePhase = .ready
@@ -292,11 +292,14 @@ struct TableMatch: Codable {
                     // A slightly forgiving arcade contact envelope is much
                     // closer to the displayed racket than the old invisible
                     // click-anywhere behavior.
-                    let horizontal = abs(b.x - paddleX) <=
-                        Self.paddleHalfWidth + Self.ballRadius + 0.06
-                    let vertical = abs(b.y - Self.paddleCenterY) <=
-                        Self.paddleHalfHeight + Self.ballRadius
-                    if horizontal && vertical {
+                    // An oval swept-sphere contact envelope, expanded
+                    // slightly for the arcade camera and human reaction time.
+                    // The small visible paddle is not a giant invisible box.
+                    let contactX = Self.paddleHalfWidth + Self.ballRadius + 0.095
+                    let contactY = Self.paddleHalfHeight + Self.ballRadius + 0.085
+                    let nx = (b.x - paddleX) / contactX
+                    let ny = (b.y - Self.paddleCenterY) / contactY
+                    if nx * nx + ny * ny <= 1.0 {
                         ball = b
                         let chosen: TableShot
                         let target: Double
