@@ -224,7 +224,7 @@ struct TableMatch: Codable {
                 } else {
                     if landedSide != receivingSide || b.receiverBounceCount > 0 {
                         ball = nil
-                        awardPoint(to: receivingSide, reason: "DOUBLE BOUNCE / WRONG COURT")
+                        awardPoint(to: landedSide == receivingSide && b.receiverBounceCount > 0 ? b.lastHit : receivingSide, reason: "DOUBLE BOUNCE / WRONG COURT")
                         events.append(.score)
                         continue
                     }
