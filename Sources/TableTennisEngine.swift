@@ -88,11 +88,14 @@ struct TableMatch: Codable {
     }
     mutating func reset(_ rules: PaddleRules) { self = TableMatch(rules: rules) }
 
-    mutating func movePlayer(to normalizedX: Double) {
-        playerX = clampTable(normalizedX * 0.64, -0.70, 0.70)
+    /// Inputs are world-space metres from the projected pointer, not a
+    /// percentage of the entire window. This keeps the paddle directly below
+    /// the pointer even when the table occupies only part of the viewport.
+    mutating func movePlayer(to worldX: Double) {
+        playerX = clampTable(worldX, -0.70, 0.70)
     }
-    mutating func aim(to normalizedX: Double) {
-        aimX = clampTable(normalizedX * 0.65, -0.65, 0.65)
+    mutating func aim(to worldX: Double) {
+        aimX = clampTable(worldX * 0.93, -0.65, 0.65)
     }
 
     mutating func serve() -> Bool {
@@ -389,4 +392,33 @@ struct TableMatch: Codable {
 }
 private func clampTable(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
     min(hi, max(lo, v))
+}
+
+
+/// Camera geometry shared by the visual RealityKit renderer and mouse
+/// projection. One source of truth avoids input drift after camera changes.
+enum NeonRallyProjection {
+    static let eyeY = 1.76
+    static let eyeZ = 2.05
+    static let lookY = 0.80
+    static let lookZ = 0.50
+    static let fieldOfViewDegrees = 60.0
+    static let nearPaddleY = 1.01
+    static let nearPaddleZ = 1.47
+
+    /// Unprojects a horizontal viewport coordinate onto the player's paddle
+    /// plane using the same perspective camera as the 3D renderer. No dead
+    /// zone, damping, or multiplicative screen-width guesses.
+    static func worldX(pointerX: Double, width: Double, height: Double) -> Double {
+        guard pointerX.isFinite, width.isFinite, height.isFinite,
+              width > 0, height > 0 else { return 0 }
+        let fy = lookY - eyeY
+        let fz = lookZ - eyeZ
+        let cameraDistance = hypot(fy, fz)
+        let depth = ((nearPaddleY - eyeY) * fy +
+                     (nearPaddleZ - eyeZ) * fz) / cameraDistance
+        let halfWidthInMetres = depth * tan(fieldOfViewDegrees * .pi / 360.0) * (width / height)
+        let horizontalNDC = (pointerX - width / 2) / (width / 2)
+        return clampTable(horizontalNDC * halfWidthInMetres, -0.70, 0.70)
+    }
 }
