@@ -254,15 +254,20 @@ struct TableMatch: Codable {
                         continue
                     }
                     b.receiverBounceCount += 1
-                    if b.isServe { b.isServe = false }
                     events.append(.wall)
                     banner = receivingSide == .left ? "RETURN THE BALL · CLICK" : "OPPONENT RETURNING"
                 }
                 b.y = Self.tableHeight + Self.ballRadius
-                // The first service bounce must preserve sufficient height
-                // for the ball to cross the 15.25 cm net; normal rally
-                // returns retain the lower restitution.
-                b.vy = abs(b.vy) * (b.isServe && b.ownServeBounce ? 0.90 : 0.77)
+                // The racket is close to the rear edge. Preserve bounce
+                // energy on BOTH halves of a legal serve so the ball travels
+                // through the visible paddle plane before its next bounce.
+                // Previous code cleared isServe too early and unintentionally
+                // treated the receiver's service bounce as a low 0.77 rebound.
+                let servingBounce = b.isServe
+                b.vy = abs(b.vy) * (servingBounce ? 0.92 : 0.77)
+                if servingBounce && b.receiverBounceCount == 1 {
+                    b.isServe = false
+                }
                 b.vx *= 0.95
                 b.vz *= 0.93
             }
