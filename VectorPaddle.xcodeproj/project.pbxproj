@@ -44,7 +44,7 @@
    INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle";
    INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
    INFOPLIST_KEY_NSHighResolutionCapable = YES;
-   MACOSX_DEPLOYMENT_TARGET = 14.0;
+   MACOSX_DEPLOYMENT_TARGET = 15.0;
    MARKETING_VERSION = 0.2.0;
    PRODUCT_BUNDLE_IDENTIFIER = "io.vectorpaddle.game";
    PRODUCT_NAME = "$(TARGET_NAME)";
@@ -58,7 +58,7 @@
    INFOPLIST_KEY_CFBundleDisplayName = "Vector Paddle";
    INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
    INFOPLIST_KEY_NSHighResolutionCapable = YES;
-   MACOSX_DEPLOYMENT_TARGET = 14.0;
+   MACOSX_DEPLOYMENT_TARGET = 15.0;
    MARKETING_VERSION = 0.2.0;
    PRODUCT_BUNDLE_IDENTIFIER = "io.vectorpaddle.game";
    PRODUCT_NAME = "$(TARGET_NAME)";
@@ -69,13 +69,13 @@
   A10000000000000000000033 = { isa = XCBuildConfiguration; buildSettings = {
    CODE_SIGNING_ALLOWED = NO;
    SDKROOT = macosx;
-   MACOSX_DEPLOYMENT_TARGET = 14.0;
+   MACOSX_DEPLOYMENT_TARGET = 15.0;
    SWIFT_VERSION = 5.0;
   }; name = Debug; };
   A10000000000000000000034 = { isa = XCBuildConfiguration; buildSettings = {
    CODE_SIGNING_ALLOWED = NO;
    SDKROOT = macosx;
-   MACOSX_DEPLOYMENT_TARGET = 14.0;
+   MACOSX_DEPLOYMENT_TARGET = 15.0;
    SWIFT_OPTIMIZATION_LEVEL = "-O";
    SWIFT_VERSION = 5.0;
   }; name = Release; };
